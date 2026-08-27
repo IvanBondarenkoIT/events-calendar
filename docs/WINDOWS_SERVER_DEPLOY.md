@@ -1,4 +1,4 @@
-# Windows Server deploy — DimKava Event Calendar (DEC)
+﻿# Windows Server deploy — DimKava Event Calendar (DEC)
 
 Production model (как **dimkava-big-book** Docker/GHCR + **prices-monitoring** Task Scheduler):
 
@@ -24,7 +24,7 @@ Production model (как **dimkava-big-book** Docker/GHCR + **prices-monitoring*
 Рекомендуемый layout:
 
 ```text
-C:\events-calendar\
+C:\Projects\events-calendar\
   .env                 # секреты (создать из .env.example)
   data\                # volume: alert_state.json
   logs\                # логи run-slot
@@ -40,7 +40,7 @@ C:\events-calendar\
 С рабочей машины (после клона репо):
 
 ```powershell
-$dst = "C:\events-calendar"   # или \\SERVER\c$\events-calendar
+$dst = "C:\Projects\events-calendar"   # или \\SERVER\c$\events-calendar
 New-Item -ItemType Directory -Force -Path $dst, "$dst\data", "$dst\logs", "$dst\scripts" | Out-Null
 Copy-Item docker-compose.prod.yml, .env.example $dst -Force
 Copy-Item deploy\scripts\*.ps1 $dst\scripts -Force
@@ -51,7 +51,7 @@ Copy-Item deploy\scripts\*.ps1 $dst\scripts -Force
 ## 2. Секреты `.env`
 
 ```powershell
-cd C:\events-calendar
+cd C:\Projects\events-calendar
 Copy-Item .env.example .env
 notepad .env
 ```
@@ -84,8 +84,8 @@ echo YOUR_PAT | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 Если **public**: можно pull без login (или login всё равно).
 
 ```powershell
-cd C:\events-calendar
-powershell -ExecutionPolicy Bypass -File .\scripts\first-deploy.ps1 -DeployDir C:\events-calendar
+cd C:\Projects\events-calendar
+powershell -ExecutionPolicy Bypass -File .\scripts\first-deploy.ps1 -DeployDir C:\Projects\events-calendar
 ```
 
 Скрипт: `docker pull`, smoke `check-config` и `check-jira`.
@@ -95,9 +95,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\first-deploy.ps1 -DeployDir C
 ```powershell
 docker pull ghcr.io/ivanbondarenkoit/events-calendar:latest
 
-docker run --rm --env-file C:\events-calendar\.env `
+docker run --rm --env-file C:\Projects\events-calendar\.env `
   -e TZ=Asia/Tbilisi -e PYTHONPATH=/app/src `
-  -v C:\events-calendar\data:/app/data `
+  -v C:\Projects\events-calendar\data:/app/data `
   ghcr.io/ivanbondarenkoit/events-calendar:latest `
   python -m dec_calendar check-jira
 ```
@@ -109,8 +109,8 @@ docker run --rm --env-file C:\events-calendar\.env `
 От **Administrator**:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\events-calendar\scripts\install-scheduled-tasks.ps1 `
-  -DeployDir C:\events-calendar `
+powershell -ExecutionPolicy Bypass -File C:\Projects\events-calendar\scripts\install-scheduled-tasks.ps1 `
+  -DeployDir C:\Projects\events-calendar `
   -MorningAt "10:00" `
   -EveningAt "22:00"
 ```
@@ -125,10 +125,10 @@ powershell -ExecutionPolicy Bypass -File C:\events-calendar\scripts\install-sche
 Проверка вручную:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\events-calendar\scripts\run-slot.ps1 -Slot morning -DeployDir C:\events-calendar
+powershell -ExecutionPolicy Bypass -File C:\Projects\events-calendar\scripts\run-slot.ps1 -Slot morning -DeployDir C:\Projects\events-calendar
 ```
 
-Логи: `C:\events-calendar\logs\dec-morning-*.log`
+Логи: `C:\Projects\events-calendar\logs\dec-morning-*.log`
 
 ---
 
@@ -139,7 +139,7 @@ powershell -ExecutionPolicy Bypass -File C:\events-calendar\scripts\run-slot.ps1
 На сервере:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\events-calendar\scripts\update.ps1 -DeployDir C:\events-calendar
+powershell -ExecutionPolicy Bypass -File C:\Projects\events-calendar\scripts\update.ps1 -DeployDir C:\Projects\events-calendar
 ```
 
 Следующий scheduled run подхватит новый образ.
@@ -162,7 +162,7 @@ powershell -ExecutionPolicy Bypass -File C:\events-calendar\scripts\update.ps1 -
 
 1. Установить Docker Desktop (Linux containers).  
 2. Выставить TZ **Tbilisi**.  
-3. Создать `C:\events-calendar\` и скопировать `.env.example`, `docker-compose.prod.yml`, `scripts\*.ps1`.  
+3. Создать `C:\Projects\events-calendar\` и скопировать `.env.example`, `docker-compose.prod.yml`, `scripts\*.ps1`.  
 4. Заполнить `.env` (Jira + Telegram).  
 5. Дождаться первого GHCR image после push `main` (или собрать локально и tag/push).  
 6. `docker login ghcr.io` при необходимости.  

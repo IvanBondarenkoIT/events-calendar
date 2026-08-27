@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("morning", "evening")]
     [string]$Slot,
@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($DeployDir)) {
-    # deploy/scripts -> repo root (local) or C:\events-calendar (server copy)
+    # deploy/scripts -> repo root (local) or C:\Projects\events-calendar (server copy)
     $DeployDir = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
     if (!(Test-Path (Join-Path $DeployDir "docker-compose.prod.yml"))) {
         $DeployDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path

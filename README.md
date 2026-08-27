@@ -1,4 +1,4 @@
-# DimKava Event Calendar (DEC)
+﻿# DimKava Event Calendar (DEC)
 
 [![CI](https://github.com/IvanBondarenkoIT/events-calendar/actions/workflows/ci.yml/badge.svg)](https://github.com/IvanBondarenkoIT/events-calendar/actions/workflows/ci.yml)
 
@@ -90,8 +90,8 @@ python -m dec_calendar run-once --slot auto
 
 ```powershell
 # на сервере после копирования scripts и .env
-.\scripts\first-deploy.ps1 -DeployDir C:\events-calendar
-.\scripts\install-scheduled-tasks.ps1 -DeployDir C:\events-calendar
+.\scripts\first-deploy.ps1 -DeployDir C:\Projects\events-calendar
+.\scripts\install-scheduled-tasks.ps1 -DeployDir C:\Projects\events-calendar
 ```
 
 ## Тесты

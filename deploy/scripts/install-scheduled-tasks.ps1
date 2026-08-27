@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$DeployDir = "",
     [string]$MorningAt = "10:00",
     [string]$EveningAt = "22:00",
@@ -16,7 +16,7 @@ if ([string]::IsNullOrWhiteSpace($DeployDir)) {
 
 $runner = Join-Path $DeployDir "deploy\scripts\run-slot.ps1"
 if (!(Test-Path -LiteralPath $runner)) {
-    # Server layout: C:\events-calendar\scripts\run-slot.ps1
+    # Server layout: C:\Projects\events-calendar\scripts\run-slot.ps1
     $runner = Join-Path $DeployDir "scripts\run-slot.ps1"
 }
 if (!(Test-Path -LiteralPath $runner)) {
