@@ -1,0 +1,18 @@
+# Production helper compose — jobs are started by Windows Task Scheduler
+# via deploy/scripts/run-slot.ps1 (docker run --rm), not as an always-on service.
+
+services:
+  dec:
+    image: ${DEC_IMAGE:-ghcr.io/ivanbondarenkoit/events-calendar:latest}
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Tbilisi
+      PYTHONPATH: /app/src
+      IDEMPOTENCY_PATH: /app/data/alert_state.json
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    # One-shot by default; override command for slots:
+    # docker compose -f docker-compose.prod.yml run --rm dec python -m dec_calendar run-once --slot morning
+    command: ["python", "-m", "dec_calendar", "check-config"]
