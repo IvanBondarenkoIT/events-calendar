@@ -18,7 +18,7 @@ if (!(Test-Path -LiteralPath $envFile)) {
     $example = Join-Path $DeployDir ".env.example"
     if (Test-Path -LiteralPath $example) {
         Copy-Item $example $envFile
-        Write-Host "Created $envFile from .env.example — FILL SECRETS before jobs."
+        Write-Host "Created $envFile from .env.example - FILL SECRETS before jobs."
     }
     else {
         throw "Missing .env and .env.example in $DeployDir"
@@ -33,19 +33,23 @@ if (-not $SkipLogin) {
 Write-Host "Pulling $Image ..."
 docker pull $Image
 
+$dataMount = Join-Path $DeployDir "data"
+
 Write-Host "Smoke: check-config"
 docker run --rm --env-file $envFile `
     -e TZ=Asia/Tbilisi -e PYTHONPATH=/app/src `
-    -v "$(Join-Path $DeployDir 'data'):/app/data" `
+    -v "${dataMount}:/app/data" `
     $Image python -m dec_calendar check-config
 
 Write-Host "Smoke: check-jira (needs filled JIRA_* in .env)"
 docker run --rm --env-file $envFile `
     -e TZ=Asia/Tbilisi -e PYTHONPATH=/app/src `
-    -v "$(Join-Path $DeployDir 'data'):/app/data" `
+    -v "${dataMount}:/app/data" `
     $Image python -m dec_calendar check-jira
 
+$installDeploy = Join-Path $DeployDir "deploy\scripts\install-scheduled-tasks.ps1"
+$installScripts = Join-Path $DeployDir "scripts\install-scheduled-tasks.ps1"
 Write-Host "Next: install scheduled tasks:"
-Write-Host "  powershell -ExecutionPolicy Bypass -File `"$DeployDir\deploy\scripts\install-scheduled-tasks.ps1`" -DeployDir `"$DeployDir`""
+Write-Host ("  powershell -ExecutionPolicy Bypass -File `"{0}`" -DeployDir `"{1}`"" -f $installDeploy, $DeployDir)
 Write-Host "Or if scripts copied to scripts\:"
-Write-Host "  powershell -ExecutionPolicy Bypass -File `"$DeployDir\scripts\install-scheduled-tasks.ps1`" -DeployDir `"$DeployDir`""
+Write-Host ("  powershell -ExecutionPolicy Bypass -File `"{0}`" -DeployDir `"{1}`"" -f $installScripts, $DeployDir)
