@@ -1,6 +1,6 @@
 # Промпт: подключить events-calendar к Notify Hub
 
-**Состояние (18.09.2026):** хаб на проде, бот календаря — `@dimkava_public_alerts_bot`. Клиент в репо есть (`notify_hub_client.py`). Прод календаря ещё на прямом Telegram (`NOTIFY_VIA_HUB` default false). Cutover на хаб — только по явной просьбе.
+**Состояние (18.09.2026):** хаб на проде. DEC на Debian шлёт в хаб (`NOTIFY_VIA_HUB=true`), канал **public**, бот `@dimkava_public_alerts_bot`. Direct Telegram не вызывается. Откат: `NOTIFY_VIA_HUB=false` или tag `pre-notify-hub`.
 
 Контракт: `D:\CursorProjects\notify-hub\docs\INTEGRATION.md`  
 Боты: `D:\CursorProjects\notify-hub\docs\CHANNELS.md`  

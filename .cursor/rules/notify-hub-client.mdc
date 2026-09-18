@@ -8,7 +8,7 @@ alwaysApply: true
 Контракт: `D:\CursorProjects\notify-hub\docs\INTEGRATION.md`  
 Внедрение: `PROMPTS/NOTIFY_HUB.md`
 
-Сейчас календарь шлёт в Telegram сам (`job.py` → `telegram_client.py`), пока `NOTIFY_VIA_HUB` не `true`.
+Сейчас на Debian-проде `NOTIFY_VIA_HUB=true` (`job.py` → `notify_hub_client.py`, канал public). Прямой Telegram только если флаг false.
 
 Клиент: `src/dec_calendar/notify_hub_client.py`. Cutover:
 

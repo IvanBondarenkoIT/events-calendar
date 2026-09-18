@@ -5,7 +5,7 @@
 Jira — единый источник правды (project **`DEC`**).  
 Telegram — оповещения. Сейчас **напрямую** (`TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`, исторически `@prices_monitoring_alerts_bot`).  
 Целевая доставка — [Notify Hub](../notify-hub/docs/INTEGRATION.md), бот **`@dimkava_public_alerts_bot`**.  
-Флаг: `NOTIFY_VIA_HUB=false` (по умолчанию) = старый путь; `true` = только хаб. **Никогда оба.**  
+Флаг: `NOTIFY_VIA_HUB=true` на Debian-проде (хаб, канал public). Default в `.env.example` — `false` для локалки. **Никогда оба пути.**  
 Откат: [`docs/NOTIFY_HUB_ROLLBACK.md`](docs/NOTIFY_HUB_ROLLBACK.md) (tag `pre-notify-hub`).
 
 - Стратегия: [`docs/STRATEGY.md`](docs/STRATEGY.md)
