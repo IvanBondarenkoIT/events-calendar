@@ -11,6 +11,7 @@ from dec_calendar.idempotency import IdempotencyStore
 from dec_calendar.jira_client import JiraClient
 from dec_calendar.messages import format_alert_message, jira_alert_comment
 from dec_calendar.models import AlertSlot
+from dec_calendar.notify_hub_client import NotifyHubClient, build_calendar_event
 from dec_calendar.reminders import evaluate_issue, idempotency_key, resolve_slot
 from dec_calendar.telegram_client import TelegramClient
 
@@ -51,11 +52,12 @@ def run_reminder_job(
     slot: AlertSlot = AlertSlot.AUTO,
     jira: Optional[JiraClient] = None,
     telegram: Optional[TelegramClient] = None,
+    notify_hub: Optional[NotifyHubClient] = None,
     store: Optional[IdempotencyStore] = None,
     comment_on_jira: bool = True,
     now: Optional[datetime] = None,
 ) -> JobReport:
-    """Fetch DEC issues and send due Telegram reminders (idempotent)."""
+    """Fetch DEC issues and send due reminders (idempotent). Hub XOR direct Telegram."""
     is_dry = settings.dry_run if dry_run is None else dry_run
     today_local = local_today(settings.timezone, override=today)
     resolved = resolve_slot(slot, timezone=settings.timezone, now=now)
@@ -68,15 +70,20 @@ def run_reminder_job(
     issues = sorted(issues, key=lambda i: (i.due_date, i.key))
     report.considered = len(issues)
     logger.info(
-        "Loaded %s calendar issues for %s slot=%s",
+        "Loaded %s calendar issues for %s slot=%s via_hub=%s",
         len(issues),
         today_local.isoformat(),
         resolved.value if resolved else "none",
+        settings.notify_via_hub,
     )
 
-    pending_telegram = telegram
+    pending_telegram: Optional[TelegramClient] = telegram
+    pending_hub: Optional[NotifyHubClient] = notify_hub
     if not is_dry:
-        pending_telegram = telegram or TelegramClient(settings)
+        if settings.notify_via_hub:
+            pending_hub = notify_hub or NotifyHubClient(settings)
+        else:
+            pending_telegram = telegram or TelegramClient(settings)
 
     for issue in issues:
         windows = evaluate_issue(issue, today_local, slot=resolved)
@@ -98,8 +105,21 @@ def run_reminder_job(
                 logger.info("[dry-run] %s %s", issue.key, window.value)
                 continue
             try:
-                assert pending_telegram is not None
-                pending_telegram.send_message(message)
+                if settings.notify_via_hub:
+                    assert pending_hub is not None
+                    event = build_calendar_event(
+                        idem_key=key,
+                        issue=issue,
+                        window=window,
+                        body=message,
+                        today=today_local,
+                        slot=resolved,
+                        seed_chat_id=settings.telegram_chat_id,
+                    )
+                    pending_hub.post_event(event)
+                else:
+                    assert pending_telegram is not None
+                    pending_telegram.send_message(message)
                 if comment_on_jira:
                     try:
                         jira.add_comment(issue.key, jira_alert_comment(window, today_local))

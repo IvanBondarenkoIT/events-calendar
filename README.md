@@ -3,9 +3,10 @@
 [![CI](https://github.com/IvanBondarenkoIT/events-calendar/actions/workflows/ci.yml/badge.svg)](https://github.com/IvanBondarenkoIT/events-calendar/actions/workflows/ci.yml)
 
 Jira — единый источник правды (project **`DEC`**).  
-Telegram — только оповещения (`@prices_monitoring_alerts_bot`, токен/чат из env).
-
-Целевая доставка команды — [Notify Hub](../notify-hub/docs/INTEGRATION.md) (`POST /v1/events`). Пока календарь ещё шлёт в Telegram напрямую; не дублировать одно событие в хаб и в `sendMessage`.
+Telegram — оповещения. Сейчас **напрямую** (`TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`, исторически `@prices_monitoring_alerts_bot`).  
+Целевая доставка — [Notify Hub](../notify-hub/docs/INTEGRATION.md), бот **`@dimkava_public_alerts_bot`**.  
+Флаг: `NOTIFY_VIA_HUB=false` (по умолчанию) = старый путь; `true` = только хаб. **Никогда оба.**  
+Откат: [`docs/NOTIFY_HUB_ROLLBACK.md`](docs/NOTIFY_HUB_ROLLBACK.md) (tag `pre-notify-hub`).
 
 - Стратегия: [`docs/STRATEGY.md`](docs/STRATEGY.md)
 - Jira setup: [`docs/JIRA_DEC_SETUP.md`](docs/JIRA_DEC_SETUP.md)
@@ -35,6 +36,7 @@ python -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env
 # заполните JIRA_* и TELEGRAM_* в .env
+# Notify Hub: NOTIFY_HUB_URL, NOTIFY_HUB_API_KEY; cutover NOTIFY_VIA_HUB=true
 ```
 
 `PYTHONPATH` должен включать `src` (команды ниже делают это через `-m`).
@@ -67,7 +69,8 @@ python -m dec_calendar run-once --slot evening
 python -m dec_calendar run-once --slot auto
 ```
 
-Смена бота/чата — только `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` в `.env`.
+Смена бота/чата — `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` в `.env`.  
+Cutover на хаб — `NOTIFY_VIA_HUB=true` плюс `NOTIFY_HUB_URL` / `NOTIFY_HUB_API_KEY`. С Windows не ставить `127.0.0.1` на хаб Debian. Подписка: [@dimkava_public_alerts_bot](https://t.me/dimkava_public_alerts_bot) → `/start` → «Календарь».
 
 ## Расписание (рекомендация)
 

@@ -8,13 +8,14 @@ alwaysApply: true
 Контракт: `D:\CursorProjects\notify-hub\docs\INTEGRATION.md`  
 Внедрение: `PROMPTS/NOTIFY_HUB.md`
 
-Сейчас календарь шлёт в Telegram сам (`job.py` → `telegram_client.py`).
+Сейчас календарь шлёт в Telegram сам (`job.py` → `telegram_client.py`), пока `NOTIFY_VIA_HUB` не `true`.
 
-Когда пользователь попросит переключить на хаб:
+Клиент: `src/dec_calendar/notify_hub_client.py`. Cutover:
 
 - `POST {NOTIFY_HUB_URL}/v1/events` с `X-Api-Key` (ключ из `SERVICE_API_KEYS` хаба)
-- `type`: `calendar.event.v1`, канал `public`, `require_ack: false`
+- `type`: `calendar.event.v1` (one-shot) или `calendar.reminder.v1` (nags), канал `public` (`@dimkava_public_alerts_bot`), `require_ack: false`
 - `event_id` = `calendar-` + текущий idempotency key
 - Cutover: хаб **или** прямой sendMessage, никогда оба
 - URL: календарь на Windows — не подставлять `127.0.0.1` без проверки сети
 - Не добавлять getUpdates на токен хаба
+- Откат: `docs/NOTIFY_HUB_ROLLBACK.md`, tag `pre-notify-hub`

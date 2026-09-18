@@ -28,6 +28,9 @@ class Settings:
     telegram_bot_token: str
     telegram_chat_id: str
     telegram_disable_ssl_verify: bool
+    notify_hub_url: str
+    notify_hub_api_key: str
+    notify_via_hub: bool
     dry_run: bool
     idempotency_path: Path
     log_level: str
@@ -57,6 +60,18 @@ class Settings:
         ]
         if missing:
             raise ValueError(f"Missing required Telegram settings: {', '.join(missing)}")
+
+    def require_notify_hub(self) -> None:
+        missing = [
+            name
+            for name, val in [
+                ("NOTIFY_HUB_URL", self.notify_hub_url),
+                ("NOTIFY_HUB_API_KEY", self.notify_hub_api_key),
+            ]
+            if not val
+        ]
+        if missing:
+            raise ValueError(f"Missing required Notify Hub settings: {', '.join(missing)}")
 
     @property
     def jira_browse_base(self) -> str:
@@ -91,6 +106,9 @@ def load_settings(env_file: Optional[Path] = None) -> Settings:
             os.getenv("TELEGRAM_DISABLE_SSL_VERIFY") or os.getenv("DISABLE_SSL_VERIFY"),
             default=False,
         ),
+        notify_hub_url=(os.getenv("NOTIFY_HUB_URL") or "").strip().rstrip("/"),
+        notify_hub_api_key=(os.getenv("NOTIFY_HUB_API_KEY") or "").strip(),
+        notify_via_hub=_as_bool(os.getenv("NOTIFY_VIA_HUB"), default=False),
         dry_run=_as_bool(os.getenv("DRY_RUN"), default=False),
         idempotency_path=idem_path,
         log_level=(os.getenv("LOG_LEVEL") or "INFO").strip().upper(),

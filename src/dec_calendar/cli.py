@@ -35,6 +35,9 @@ def cmd_check_config(_: argparse.Namespace) -> int:
     print(f"jira_token_set={bool(settings.jira_api_token)}")
     print(f"telegram_token_set={bool(settings.telegram_bot_token)}")
     print(f"telegram_chat_set={bool(settings.telegram_chat_id)}")
+    print(f"notify_via_hub={settings.notify_via_hub}")
+    print(f"notify_hub_url={settings.notify_hub_url or '(empty)'}")
+    print(f"notify_hub_key_set={bool(settings.notify_hub_api_key)}")
     print(f"dry_run={settings.dry_run}")
     print(f"idempotency_path={settings.idempotency_path}")
     return 0

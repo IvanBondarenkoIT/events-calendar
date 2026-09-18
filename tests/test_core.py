@@ -208,3 +208,161 @@ class TestIdempotencyStore:
         store.add("a")
         store2 = IdempotencyStore.load(path)
         assert store2.has("a")
+
+
+def _settings(*, via_hub: bool, tmp_path: Path) -> "Settings":
+    from dec_calendar.config import Settings
+
+    return Settings(
+        timezone="Asia/Tbilisi",
+        jira_url="https://example.atlassian.net",
+        jira_email="a@b.c",
+        jira_api_token="t",
+        jira_project_key="DEC",
+        jira_issue_type="Task",
+        jira_ssl_verify=True,
+        telegram_bot_token="bot-token",
+        telegram_chat_id="-100123",
+        telegram_disable_ssl_verify=False,
+        notify_hub_url="http://127.0.0.1:8080",
+        notify_hub_api_key="hub-key",
+        notify_via_hub=via_hub,
+        dry_run=False,
+        idempotency_path=tmp_path / "alert_state.json",
+        log_level="INFO",
+    )
+
+
+class TestNotifyHubClient:
+    def test_calendar_event_id_and_payload(self) -> None:
+        from dec_calendar.notify_hub_client import build_calendar_event, calendar_event_id
+
+        issue = _issue(EventKind.PROMO, date(2026, 9, 1), "[Промо] Начало осени")
+        idem = "DEC-1|t_minus_15|2026-09-01"
+        event = build_calendar_event(
+            idem_key=idem,
+            issue=issue,
+            window=ReminderWindow.T_MINUS_15,
+            body="hello",
+            today=date(2026, 8, 17),
+            slot=AlertSlot.MORNING,
+            seed_chat_id="-100123",
+        )
+        assert event["event_id"] == calendar_event_id(idem)
+        assert event["type"] == "calendar.event.v1"
+        assert event["channels"] == ["public"]
+        assert event["require_ack"] is False
+        assert event["targets"]["chat_ids"] == [-100123]
+        assert event["data"]["jira_key"] == "DEC-1"
+
+        nag = build_calendar_event(
+            idem_key="DEC-1|nag_start_work_morning|2026-09-01|2026-08-17",
+            issue=issue,
+            window=ReminderWindow.NAG_START_WORK_MORNING,
+            body="nag",
+            today=date(2026, 8, 17),
+            slot=AlertSlot.MORNING,
+            seed_chat_id="-100123",
+        )
+        assert nag["type"] == "calendar.reminder.v1"
+        assert nag["channels"] == ["public"]
+
+    def test_post_event_accepted_and_duplicate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from dec_calendar.notify_hub_client import NotifyHubClient, NotifyHubError
+
+        calls: list[dict] = []
+
+        class FakeResp:
+            def __init__(self, status_code: int, payload: dict) -> None:
+                self.status_code = status_code
+                self._payload = payload
+                self.content = b"{}"
+                self.text = str(payload)
+
+            def json(self) -> dict:
+                return self._payload
+
+        def fake_post(url, json, headers, timeout):  # noqa: A002
+            calls.append({"url": url, "json": json, "headers": headers, "timeout": timeout})
+            status = "duplicate" if len(calls) > 1 else "accepted"
+            return FakeResp(200, {"status": status, "event_id": json["event_id"]})
+
+        monkeypatch.setattr("dec_calendar.notify_hub_client.requests.post", fake_post)
+        client = NotifyHubClient(_settings(via_hub=True, tmp_path=Path(".")))
+        event = {"event_id": "calendar-x", "type": "calendar.event.v1"}
+        first = client.post_event(event)
+        second = client.post_event(event)
+        assert first["status"] == "accepted"
+        assert second["status"] == "duplicate"
+        assert calls[0]["headers"]["X-Api-Key"] == "hub-key"
+        assert calls[0]["url"].endswith("/v1/events")
+
+        def boom(*_a, **_k):
+            return FakeResp(500, {})
+
+        monkeypatch.setattr("dec_calendar.notify_hub_client.requests.post", boom)
+        with pytest.raises(NotifyHubError):
+            client.post_event(event)
+
+
+class TestJobCutover:
+    def test_hub_xor_telegram(self, tmp_path: Path) -> None:
+        from dec_calendar.job import run_reminder_job
+
+        issue = _issue(EventKind.PROMO, date(2026, 9, 1), "[Промо] Начало осени")
+
+        class FakeJira:
+            def list_calendar_issues(self):
+                return [issue]
+
+            def add_comment(self, *_a, **_k):
+                return None
+
+        class FakeTelegram:
+            def __init__(self) -> None:
+                self.sent: list[str] = []
+
+            def send_message(self, text: str) -> None:
+                self.sent.append(text)
+
+        class FakeHub:
+            def __init__(self) -> None:
+                self.events: list[dict] = []
+
+            def post_event(self, event: dict) -> dict:
+                self.events.append(event)
+                return {"status": "accepted", "event_id": event["event_id"]}
+
+        telegram = FakeTelegram()
+        hub = FakeHub()
+        report = run_reminder_job(
+            _settings(via_hub=True, tmp_path=tmp_path),
+            today=date(2026, 8, 17),
+            slot=AlertSlot.MORNING,
+            jira=FakeJira(),  # type: ignore[arg-type]
+            telegram=telegram,  # type: ignore[arg-type]
+            notify_hub=hub,  # type: ignore[arg-type]
+            comment_on_jira=False,
+        )
+        assert report.sent
+        assert hub.events
+        types = {e["type"] for e in hub.events}
+        assert "calendar.event.v1" in types
+        assert "calendar.reminder.v1" in types
+        assert telegram.sent == []
+
+        telegram2 = FakeTelegram()
+        hub2 = FakeHub()
+        report2 = run_reminder_job(
+            _settings(via_hub=False, tmp_path=tmp_path / "tg"),
+            today=date(2026, 8, 17),
+            slot=AlertSlot.MORNING,
+            jira=FakeJira(),  # type: ignore[arg-type]
+            telegram=telegram2,  # type: ignore[arg-type]
+            notify_hub=hub2,  # type: ignore[arg-type]
+            comment_on_jira=False,
+        )
+        assert report2.sent
+        assert telegram2.sent
+        assert hub2.events == []
+

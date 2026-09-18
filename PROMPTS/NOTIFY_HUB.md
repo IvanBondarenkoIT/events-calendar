@@ -1,11 +1,11 @@
 # Промпт: подключить events-calendar к Notify Hub
 
-Исполнять, когда пользователь явно попросит внедрить доставку через хаб.  
-Сейчас календарь шлёт Telegram **напрямую**. Этот файл — чеклист, не разрешение слать live.
+**Состояние (18.09.2026):** хаб на проде, бот календаря — `@dimkava_public_alerts_bot`. Клиент в репо есть (`notify_hub_client.py`). Прод календаря ещё на прямом Telegram (`NOTIFY_VIA_HUB` default false). Cutover на хаб — только по явной просьбе.
 
-Контракт хаба: `D:\CursorProjects\notify-hub\docs\INTEGRATION.md`  
-DEC-пилот: `D:\CursorProjects\notify-hub\docs\INTEGRATION_DEC.md`  
-Типы: `D:\CursorProjects\notify-hub\docs\EVENT_TYPES.md`
+Контракт: `D:\CursorProjects\notify-hub\docs\INTEGRATION.md`  
+Боты: `D:\CursorProjects\notify-hub\docs\CHANNELS.md`  
+DEC: `D:\CursorProjects\notify-hub\docs\INTEGRATION_DEC.md`  
+Откат: `docs/NOTIFY_HUB_ROLLBACK.md`
 
 ## Что есть сегодня
 
@@ -31,13 +31,13 @@ DEC-пилот: `D:\CursorProjects\notify-hub\docs\INTEGRATION_DEC.md`
 3. В `job.py`: при `NOTIFY_VIA_HUB=true` слать в хаб; иначе — как сейчас в Telegram. **Никогда оба** на одно событие.
 4. Поля события:
    - `event_id`: `calendar-` + текущий `idem_key`
-   - `type`: `calendar.event.v1`
+   - `type`: one-shot T−30/T−15/ДР → `calendar.event.v1`; nags `nag_*` → `calendar.reminder.v1`
    - `channels`: `["public"]`
    - `source`: `events-calendar`
    - `require_ack`: `false`
    - `title`: `issue.summary`
    - `body`: результат `format_alert_message()`
-   - `targets.chat_ids`: на переход — `[int(TELEGRAM_CHAT_ID)]` (тот же чат, что сейчас)
+   - `targets.chat_ids`: на переход можно `[int(TELEGRAM_CHAT_ID)]`; цель — подписчики `@dimkava_public_alerts_bot` (канал `public`)
    - `data`: `jira_key`, `window`, `due_date`, `slot`, `kind`
 5. Локальный JSON-store **оставить**; писать ключ после успешного `accepted` или при `duplicate`.
 6. Тесты: mock HTTP, без живого Telegram/хаба.

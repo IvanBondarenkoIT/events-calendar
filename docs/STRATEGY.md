@@ -188,7 +188,8 @@
 
 ### 4.3. Telegram-бот
 
-- Handle для тестирования/работы: **`@prices_monitoring_alerts_bot`**
+- Handle для тестирования/работы (legacy прямой send): **`@prices_monitoring_alerts_bot`**
+- Целевой бот хаба (канал public): **`@dimkava_public_alerts_bot`**
 - Паттерн конфига как в sibling-проекте `D:\CursorProjects\prices-monitoring-scrappers`:
   - `TELEGRAM_BOT_TOKEN`
   - `TELEGRAM_CHAT_ID`
@@ -261,7 +262,8 @@ Auth: HTTP Basic (email + API token), как в:
    - compute windows vs today
    - idempotency store
         |
-        +-----> Telegram sendMessage (same chat)
+        +-----> Telegram: прямой sendMessage ИЛИ Notify Hub POST /v1/events
+        |        (NOTIFY_VIA_HUB; никогда оба)
         +-----> optional: Jira comment "alert sent T-15"
 ```
 
@@ -510,7 +512,7 @@ IDEMPOTENCY_PATH=./data/alert_state.json
 2. Есть issue **«Начало учебного года»** с `duedate=2026-09-15`.
 3. Есть issue **«Начало осени»** с `duedate=2026-09-01` и пометкой тестового пилота.
 4. Job по правилам §6.2 хотя бы в dry-run корректно выбирает окна.
-5. Реальная отправка в Telegram через `@prices_monitoring_alerts_bot` (credentials из env) в **один** chat_id для обоих контуров.
+5. Реальная отправка: пока `NOTIFY_VIA_HUB=false` — `@prices_monitoring_alerts_bot`; цель — `@dimkava_public_alerts_bot` через Notify Hub (канал `public`).
 6. Повторный запуск в тот же день **не** дублирует то же окно.
 7. Изменение `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` в env меняет получателя без правки кода.
 8. Документация в README: как добавить событие и как запускать job.
@@ -536,7 +538,7 @@ IDEMPOTENCY_PATH=./data/alert_state.json
 **Сделай / продолжай так:**
 
 1. Не клади SSOT в Excel или Telegram — только **Jira `DEC`**.
-2. Telegram — только send; бот **`@prices_monitoring_alerts_bot`** через env.
+2. Telegram по умолчанию — прямой send; cutover на **Notify Hub** канал **public** (`NOTIFY_VIA_HUB`). Подписки — `@dimkava_public_alerts_bot` (`/start` → «Календарь»). Каналы private/personal в этом репо не используются.
 3. Праздники: алерты **−30 и −15**; ДР: **−1 и 0**; **один** чат.
 4. Пилот: тест **01.09.2026 Начало осени**; бой **15.09.2026 Начало учебного года**.
 5. Переиспользуй Jira-клиент из `jira-notion-syncron`, TG из `prices-monitoring-scrappers`.
@@ -565,6 +567,7 @@ IDEMPOTENCY_PATH=./data/alert_state.json
 | 2026-08-21 | Пилот: тест 01.09 «Начало осени»; реал 15.09 «Начало учебного года» |
 | 2026-08-21 | Бот `@prices_monitoring_alerts_bot`, credentials в env |
 | 2026-08-21 | Отдельный Jira project; ключ **`DEC`** (не CAL) |
+| 2026-09-18 | Доставка: Notify Hub `POST /v1/events` канал **public** (`@dimkava_public_alerts_bot`); nags = `calendar.reminder.v1`; tag `pre-notify-hub`; default `NOTIFY_VIA_HUB=false` |
 
 ---
 

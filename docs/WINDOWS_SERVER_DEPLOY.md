@@ -64,7 +64,10 @@ notepad .env
 | `JIRA_API_TOKEN` | API token |
 | `JIRA_PROJECT_KEY` | `DEC` |
 | `TELEGRAM_BOT_TOKEN` | токен бота |
-| `TELEGRAM_CHAT_ID` | chat id |
+| `TELEGRAM_CHAT_ID` | chat id (seed для хаба на переход) |
+| `NOTIFY_VIA_HUB` | `false` = прямой Telegram; `true` = только Notify Hub |
+| `NOTIFY_HUB_URL` | URL хаба (с Debian: `http://127.0.0.1:8080`; с Windows — не localhost) |
+| `NOTIFY_HUB_API_KEY` | ключ из `SERVICE_API_KEYS` хаба |
 | `IDEMPOTENCY_PATH` | `/app/data/alert_state.json` |
 | `JIRA_SSL_VERIFY` | `true` на чистом сервере; `false` при SSL MITM |
 

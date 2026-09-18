@@ -2,6 +2,7 @@
 
 Календарь **до cutover** шлёт алерты сам: `job.py` → `TelegramClient.send_message` (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`). Long-poll `getUpdates` нет.
 
+Целевой бот хаба: [`@dimkava_public_alerts_bot`](https://t.me/dimkava_public_alerts_bot) (канал `public`).  
 Контракт хаба: [`../notify-hub/docs/INTEGRATION.md`](../../notify-hub/docs/INTEGRATION.md).  
 Пилот DEC: [`../notify-hub/docs/INTEGRATION_DEC.md`](../../notify-hub/docs/INTEGRATION_DEC.md).
 
@@ -9,7 +10,7 @@
 
 | Что | Значение |
 |-----|----------|
-| Git tag | `pre-notify-hub` |
+| Git tag | `pre-notify-hub` (`aac8f23`) |
 | Ветка-копия | `backup/direct-telegram` |
 | origin/main на момент freeze | `17c9296` (`Fix first-deploy.ps1 quoting…`) |
 | Прод-путь алертов | прямой Telegram, один `TELEGRAM_CHAT_ID` |
