@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
 from dec_calendar.config import REPO_ROOT, Settings
-from dec_calendar.jira_client import JiraClient
+from dec_calendar.jira_client import JiraClient, text_to_adf
 from dec_calendar.models import CalendarEventDraft, EventKind
 from dec_calendar.parsers.birthdays import parse_birthdays_file
 from dec_calendar.parsers.excel_events import (
@@ -19,16 +19,19 @@ from dec_calendar.parsers.excel_events import (
 
 logger = logging.getLogger(__name__)
 
+BATUMI_SUMMARY = "[Промо] День рождения Dim Kava Batumi"
+
 
 @dataclass
 class ImportResult:
     created: list[str]
     skipped_existing: list[str]
     failed: list[tuple[str, str]]
+    updated: list[str] = field(default_factory=list)
 
     @property
     def ok_count(self) -> int:
-        return len(self.created)
+        return len(self.created) + len(self.updated)
 
 
 def pilot_drafts() -> list[CalendarEventDraft]:
@@ -54,6 +57,66 @@ def pilot_drafts() -> list[CalendarEventDraft]:
     return [autumn, school]
 
 
+def extra_events_drafts() -> list[CalendarEventDraft]:
+    """Manual DK extras — order is intentional (create/update in this sequence)."""
+    return [
+        CalendarEventDraft(
+            summary="[Промо] День машины (эспрессо-способ)",
+            kind=EventKind.PROMO,
+            due_date=date(2026, 9, 5),
+            description=holiday_checklist("День машины (эспрессо-способ)")
+            + "\nКофейный инфоповод: день эспрессо-машины / эспрессо-способа.",
+            extra_labels=("coffee",),
+            source="manual:extra",
+        ),
+        CalendarEventDraft(
+            summary="[Промо] День рождения Dim Kava Georgia",
+            kind=EventKind.PROMO,
+            due_date=date(2027, 4, 29),
+            description=holiday_checklist("День рождения Dim Kava Georgia")
+            + "\nОснование компании: 29.04.2014. Ежегодный DK-повод (не ДР сотрудника).",
+            extra_labels=("dk-internal", "georgia"),
+            source="manual:extra",
+        ),
+        CalendarEventDraft(
+            summary="[Промо] День рождения Дім Кави Україна",
+            kind=EventKind.PROMO,
+            due_date=date(2027, 5, 20),
+            description=holiday_checklist("День рождения Дім Кави Україна")
+            + "\nОснование: 20.05.1995. Ежегодный DK-повод (не ДР сотрудника).",
+            extra_labels=("dk-internal",),
+            source="manual:extra",
+        ),
+        CalendarEventDraft(
+            summary="[Праздник] День защиты детей",
+            kind=EventKind.HOLIDAY,
+            due_date=date(2027, 6, 1),
+            description=holiday_checklist("День защиты детей")
+            + "\nМеждународный день защиты детей (1 июня).",
+            extra_labels=("international",),
+            source="manual:extra",
+        ),
+        CalendarEventDraft(
+            summary="[Промо] День рождения DK Paliashvili 66",
+            kind=EventKind.PROMO,
+            due_date=date(2027, 7, 12),
+            description=holiday_checklist("День рождения DK Paliashvili 66")
+            + "\nОткрытие точки: 12.07.2016. Ежегодный DK-повод (не ДР сотрудника).",
+            extra_labels=("dk-internal",),
+            source="manual:extra",
+        ),
+        CalendarEventDraft(
+            summary=BATUMI_SUMMARY,
+            kind=EventKind.PROMO,
+            due_date=date(2027, 8, 9),
+            description=holiday_checklist("День рождения Dim Kava Batumi")
+            + "\nДата точки: 09.08 (исправлено с 10.08). Ежегодный DK-повод.",
+            extra_labels=("dk-internal",),
+            source="manual:extra",
+        ),
+    ]
+
+
 def sort_drafts_chronologically(drafts: list[CalendarEventDraft]) -> list[CalendarEventDraft]:
     """Order: dated ascending (soonest first), then needs-date / no date at the end."""
 
@@ -72,6 +135,7 @@ def build_import_drafts(
     include_excel: bool = True,
     include_birthdays: bool = True,
     include_pilot: bool = True,
+    include_extra: bool = True,
 ) -> list[CalendarEventDraft]:
     today = today or date.today()
     drafts: list[CalendarEventDraft] = []
@@ -89,6 +153,10 @@ def build_import_drafts(
 
     if include_pilot:
         drafts.extend(pilot_drafts())
+
+    if include_extra:
+        # After Excel so merge last-wins applies correct Batumi 09.08 over Excel 10.08.
+        drafts.extend(extra_events_drafts())
 
     return sort_drafts_chronologically(merge_unique_by_summary(drafts))
 
@@ -118,12 +186,16 @@ def import_drafts_to_jira(
     drafts: list[CalendarEventDraft],
     *,
     dry_run: bool = False,
+    preserve_order: bool = False,
+    update_existing: bool = False,
 ) -> ImportResult:
     created: list[str] = []
     skipped: list[str] = []
+    updated: list[str] = []
     failed: list[tuple[str, str]] = []
 
-    drafts = sort_drafts_chronologically(drafts)
+    if not preserve_order:
+        drafts = sort_drafts_chronologically(drafts)
 
     existing_cache: list = []
     if not dry_run:
@@ -134,8 +206,20 @@ def import_drafts_to_jira(
             if not dry_run:
                 existing = client.find_by_summary(draft.summary, cache=existing_cache)
                 if existing:
-                    skipped.append(existing.get("key") or draft.summary)
-                    logger.info("Skip existing: %s (%s)", draft.summary, existing.get("key"))
+                    key = existing.get("key") or draft.summary
+                    if update_existing:
+                        fields: dict = {
+                            "description": text_to_adf(draft.description),
+                            "labels": draft.labels,
+                        }
+                        if draft.due_date is not None and not draft.needs_date:
+                            fields["duedate"] = draft.due_date.isoformat()
+                        client.update_issue_fields(key, fields)
+                        updated.append(key)
+                        logger.info("Updated %s — %s", key, draft.summary)
+                    else:
+                        skipped.append(key)
+                        logger.info("Skip existing: %s (%s)", draft.summary, key)
                     continue
             if dry_run:
                 created.append(f"DRY:{draft.summary}")
@@ -152,7 +236,12 @@ def import_drafts_to_jira(
             logger.exception("Failed to import %s", draft.summary)
             failed.append((draft.summary, str(exc)))
 
-    return ImportResult(created=created, skipped_existing=skipped, failed=failed)
+    return ImportResult(
+        created=created,
+        skipped_existing=skipped,
+        failed=failed,
+        updated=updated,
+    )
 
 
 def run_import(
@@ -168,3 +257,20 @@ def run_import(
         removed = delete_all_calendar_issues(client, dry_run=dry_run)
         logger.info("Replace: removed %s existing calendar issues", len(removed))
     return import_drafts_to_jira(client, drafts, dry_run=dry_run)
+
+
+def run_import_extra(
+    settings: Settings,
+    *,
+    dry_run: bool = False,
+) -> ImportResult:
+    """Create/update manual extras in listed order (no chronological sort)."""
+    drafts = extra_events_drafts()
+    client = JiraClient(settings)
+    return import_drafts_to_jira(
+        client,
+        drafts,
+        dry_run=dry_run,
+        preserve_order=True,
+        update_existing=True,
+    )

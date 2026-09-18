@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 from dec_calendar.config import REPO_ROOT, load_settings
-from dec_calendar.import_service import build_import_drafts, run_import
+from dec_calendar.import_service import build_import_drafts, run_import, run_import_extra
 from dec_calendar.jira_client import JiraClient
 from dec_calendar.job import run_reminder_job
 from dec_calendar.models import AlertSlot
@@ -82,6 +82,25 @@ def cmd_import(args: argparse.Namespace) -> int:
     return 1 if result.failed else 0
 
 
+def cmd_import_extra(args: argparse.Namespace) -> int:
+    settings = load_settings()
+    dry = bool(args.dry_run) or settings.dry_run
+    result = run_import_extra(settings, dry_run=dry)
+    print(
+        f"created={len(result.created)} updated={len(result.updated)} "
+        f"skipped={len(result.skipped_existing)} failed={len(result.failed)}"
+    )
+    for key in result.created:
+        print(f"  + {key}")
+    for key in result.updated:
+        print(f"  ~ {key}")
+    for key in result.skipped_existing:
+        print(f"  = {key}")
+    for summary, err in result.failed:
+        print(f"  ! {summary}: {err}")
+    return 1 if result.failed else 0
+
+
 def cmd_run_once(args: argparse.Namespace) -> int:
     settings = load_settings()
     dry = bool(args.dry_run) or settings.dry_run
@@ -132,6 +151,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Delete all existing DEC calendar issues, then import chronologically",
     )
     p.set_defaults(func=cmd_import)
+
+    p = sub.add_parser(
+        "import-extra",
+        help="Create/update manual DK extras in listed order (no chronological sort)",
+    )
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_import_extra)
 
     p = sub.add_parser("run-once", help="Evaluate reminder windows and send Telegram alerts")
     p.add_argument("--dry-run", action="store_true")

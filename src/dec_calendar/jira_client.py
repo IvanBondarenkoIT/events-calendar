@@ -105,6 +105,11 @@ class JiraClient:
         logger.info("Creating issue: %s", draft.summary)
         return self._request("POST", "/rest/api/3/issue", json_body=payload)
 
+    def update_issue_fields(self, issue_key: str, fields: dict[str, Any]) -> None:
+        """PATCH issue fields (e.g. duedate, description, labels)."""
+        logger.info("Updating issue %s fields=%s", issue_key, sorted(fields.keys()))
+        self._request("PUT", f"/rest/api/3/issue/{issue_key}", json_body={"fields": fields})
+
     def add_comment(self, issue_key: str, body: str) -> dict[str, Any]:
         payload = {"body": text_to_adf(body)}
         return self._request("POST", f"/rest/api/3/issue/{issue_key}/comment", json_body=payload)

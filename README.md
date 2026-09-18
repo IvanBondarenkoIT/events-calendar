@@ -5,6 +5,8 @@
 Jira — единый источник правды (project **`DEC`**).  
 Telegram — только оповещения (`@prices_monitoring_alerts_bot`, токен/чат из env).
 
+Целевая доставка команды — [Notify Hub](../notify-hub/docs/INTEGRATION.md) (`POST /v1/events`). Пока календарь ещё шлёт в Telegram напрямую; не дублировать одно событие в хаб и в `sendMessage`.
+
 - Стратегия: [`docs/STRATEGY.md`](docs/STRATEGY.md)
 - Jira setup: [`docs/JIRA_DEC_SETUP.md`](docs/JIRA_DEC_SETUP.md)
 - **Прод на Windows Server + Docker:** [`docs/WINDOWS_SERVER_DEPLOY.md`](docs/WINDOWS_SERVER_DEPLOY.md)

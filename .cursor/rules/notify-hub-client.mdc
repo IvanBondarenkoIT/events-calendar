@@ -1,0 +1,20 @@
+---
+description: Уведомления через Notify Hub; до cutover календарь шлёт Telegram сам
+alwaysApply: true
+---
+
+# Notify Hub
+
+Контракт: `D:\CursorProjects\notify-hub\docs\INTEGRATION.md`  
+Внедрение: `PROMPTS/NOTIFY_HUB.md`
+
+Сейчас календарь шлёт в Telegram сам (`job.py` → `telegram_client.py`).
+
+Когда пользователь попросит переключить на хаб:
+
+- `POST {NOTIFY_HUB_URL}/v1/events` с `X-Api-Key` (ключ из `SERVICE_API_KEYS` хаба)
+- `type`: `calendar.event.v1`, канал `public`, `require_ack: false`
+- `event_id` = `calendar-` + текущий idempotency key
+- Cutover: хаб **или** прямой sendMessage, никогда оба
+- URL: календарь на Windows — не подставлять `127.0.0.1` без проверки сети
+- Не добавлять getUpdates на токен хаба

@@ -135,11 +135,11 @@ def find_excel_workbook(repo_root: Path) -> Path:
 
 
 def merge_unique_by_summary(drafts: Iterable[CalendarEventDraft]) -> list[CalendarEventDraft]:
-    seen: set[str] = set()
-    out: list[CalendarEventDraft] = []
+    """Dedupe by summary: preserve first-seen order, last draft wins on content."""
+    by_summary: dict[str, CalendarEventDraft] = {}
+    order: list[str] = []
     for d in drafts:
-        if d.summary in seen:
-            continue
-        seen.add(d.summary)
-        out.append(d)
-    return out
+        if d.summary not in by_summary:
+            order.append(d.summary)
+        by_summary[d.summary] = d
+    return [by_summary[s] for s in order]
